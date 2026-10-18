@@ -232,7 +232,7 @@ api.cisco.onStatus((st) => {
   const was = status.connected;
   status = st;
   if (st.version && st.version !== cisco.version) { cisco.version = st.version; renderStoreInfo(); }
-  if (!st.connected && was) connectedRef = null;
+  if (!st.connected && was) disconnected();
   if (st.connected && !connectedRef && session?.result?.handedOver) connectedRef = session.ref;
   if (st.connected && !was && session?.result?.handedOver) {
     session.result = { ok: true, message: `Connected${status.server ? ` (${status.server})` : ''}` };
@@ -242,11 +242,18 @@ api.cisco.onStatus((st) => {
   if (session) renderView();
 });
 
+// The VPN went down (here, in the Cisco app or by the server): the message and Cisco
+// output of the connection attempt no longer apply.
+function disconnected() {
+  connectedRef = null;
+  if (session && !status.connecting && (session.result?.ok || session.result?.handedOver)) session = null;
+}
+
 async function disconnect() {
   try {
     toast('Disconnecting…');
     status = await call(api.cisco.disconnect());
-    if (!status.connected) connectedRef = null;
+    if (!status.connected) disconnected();
     toast(status.connected ? 'Cisco still reports the VPN as connected' : 'Disconnected');
   } catch (e) {
     alertDialog('Could not disconnect', e);

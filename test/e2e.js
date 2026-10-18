@@ -275,6 +275,21 @@ async function run() {
     await js(`[...document.querySelectorAll('#status-bar button')].find((b) => b.textContent === 'Disconnect').click()`);
     await until(() => js(`!document.querySelector('.status-pill.on')`), 10000, 'disconnected');
   });
+  await test('after an SSO connect, disconnecting clears the "Connected" message', async () => {
+    await resetCisco();
+    await js(`[...document.querySelectorAll('.vpn')].find((n) => n.textContent.includes('Klant SSO')).click()`);
+    await js(`document.querySelector('.btn.connect').click()`);
+    await until(() => read(`${STATE}.gui`).trim() === 'sso.example.com', 15000, 'handover');
+    // The user logs in in the Cisco app; VPNMaster sees Cisco connect.
+    fs.writeFileSync(STATE, 'Connected');
+    fs.writeFileSync(`${STATE}.server`, '94.143.189.252');
+    await js(`api.cisco.status()`);
+    await until(() => js(`document.querySelector('.result.ok')?.textContent.includes('Connected (94.143.189.252)')`), 5000, '"Connected" message');
+    await js(`[...document.querySelectorAll('#status-bar button')].find((b) => b.textContent === 'Disconnect').click()`);
+    await until(() => js(`document.querySelector('#toast').textContent === 'Disconnected'`), 10000, '"Disconnected"');
+    eq(await js(`[!!document.querySelector('.result'), !!document.querySelector('.log')]`), [false, false], 'message and output cleared');
+    await cisco.stopGui();
+  });
   await test('Disconnect waits for Cisco and ignores a status asked just before', async () => {
     await resetCisco();
     fs.writeFileSync(STATE, 'Connected');
@@ -291,6 +306,7 @@ async function run() {
     await wait(3000); // the slow, stale answer has arrived by now
     assert(!(await js(`!!document.querySelector('.status-pill.on')`)), 'not shown as connected again');
     eq(await js(`document.querySelector('.status-pill').textContent`), 'Disconnected', 'status bar');
+    eq(await js(`[!!document.querySelector('.result'), !!document.querySelector('.log')]`), [false, false], '"Connected" message and Cisco output cleared');
     eq((await cisco.status()).state, 'Disconnected', 'agent');
   });
   await test('the window shows the Cisco version and says when Cisco was updated', async () => {
