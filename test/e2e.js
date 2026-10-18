@@ -278,16 +278,41 @@ async function run() {
   await test('after an SSO connect, disconnecting clears the "Connected" message', async () => {
     await resetCisco();
     await js(`[...document.querySelectorAll('.vpn')].find((n) => n.textContent.includes('Klant SSO')).click()`);
+    cisco.restoreAutoConnect(); // left over from the handover test above
+    const ownAuto = cisco.readControllable('AutoConnectOnStart');
     await js(`document.querySelector('.btn.connect').click()`);
     await until(() => read(`${STATE}.gui`).trim() === 'sso.example.com', 40000, 'handover');
+    await until(() => js(`!!document.querySelector('.result')`), 5000, 'handover shown');
     // The user logs in in the Cisco app; VPNMaster sees Cisco connect.
     fs.writeFileSync(STATE, 'Connected');
     fs.writeFileSync(`${STATE}.server`, '94.143.189.252');
     await js(`api.cisco.status()`);
     await until(() => js(`document.querySelector('.result.ok')?.textContent.includes('Connected (94.143.189.252)')`), 5000, '"Connected" message');
+    // Cisco's app is no longer needed: closed by itself, the VPN stays connected.
+    await until(async () => (await cisco.guiPids()).length === 0, 20000, 'Cisco app closed after connecting');
+    await until(() => js(`document.querySelector('#toast').textContent.includes('Cisco app was closed')`), 5000, 'toast');
+    eq((await cisco.status()).connected, true, 'still connected');
+    eq(cisco.readControllable('AutoConnectOnStart'), ownAuto, 'own auto-connect value back');
     await js(`[...document.querySelectorAll('#status-bar button')].find((b) => b.textContent === 'Disconnect').click()`);
     await until(() => js(`document.querySelector('#toast').textContent === 'Disconnected'`), 10000, '"Disconnected"');
     eq(await js(`[!!document.querySelector('.result'), !!document.querySelector('.log')]`), [false, false], 'message and output cleared');
+    await cisco.stopGui();
+  });
+  await test('with "Close Cisco after connecting" off, the Cisco app stays open', async () => {
+    await resetCisco();
+    await js(`[...document.querySelectorAll('#store-info label')].find((l) => l.textContent.includes('Close Cisco')).querySelector('input').click()`);
+    await until(() => js(`![...document.querySelectorAll('#store-info label')].find((l) => l.textContent.includes('Close Cisco')).querySelector('input').checked`), 5000, 'unchecked');
+    await js(`document.querySelector('.btn.connect').click()`);
+    await until(() => read(`${STATE}.gui`).trim() === 'sso.example.com', 40000, 'handover');
+    fs.writeFileSync(STATE, 'Connected');
+    fs.writeFileSync(`${STATE}.server`, '94.143.189.252');
+    await js(`api.cisco.status()`);
+    await until(() => js(`!!document.querySelector('.status-pill.on')`), 5000, 'connected');
+    await wait(5000);
+    eq((await cisco.guiPids()).length, 1, 'Cisco app still open');
+    await js(`[...document.querySelectorAll('#status-bar button')].find((b) => b.textContent === 'Disconnect').click()`);
+    await until(() => js(`!document.querySelector('.status-pill.on')`), 10000, 'disconnected');
+    await js(`[...document.querySelectorAll('#store-info label')].find((l) => l.textContent.includes('Close Cisco')).querySelector('input').click()`);
     await cisco.stopGui();
   });
   await test('Disconnect waits for Cisco and ignores a status asked just before', async () => {

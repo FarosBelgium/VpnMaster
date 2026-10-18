@@ -117,7 +117,7 @@ function publishStatus(st) {
   lastStatus.connecting = !!active;
   lastStatus.connectingTo = active ? active.vpn.name : '';
   noticeCiscoVersion(lastStatus.version);
-  if (lastStatus.connected && !wasConnected) setTimeout(() => cisco.restoreAutoConnect(), 5000);
+  if (lastStatus.connected && !wasConnected) afterConnected();
   wasConnected = !!lastStatus.connected;
   send('status', lastStatus);
   updateTray();
@@ -148,6 +148,7 @@ async function connect(ref, opts = {}) {
 
   if (vpn.auth !== 'password') return handOver(vpn);
 
+  handover = null; // this connection is not the Cisco app's
   const restartGui = await cisco.stopGui(); // the Cisco window would block the command-line client
   active = { vpn, restartGui };
   send('connect:start', { name: vpn.name, target: cisco.target(vpn) });
@@ -168,8 +169,30 @@ async function connect(ref, opts = {}) {
   return { ok: true, data: { mode: 'cli' } };
 }
 
+// A handover to the Cisco app (SSO) that has not connected yet: { at }.
+let handover = null;
+const HANDOVER_MS = 10 * 60 * 1000; // logging in takes at most this long
+
+// Cisco connected. After an SSO handover the Cisco app is no longer needed: the tunnel is
+// kept by Cisco's background service, so close it if the user wants that. The app may
+// save its preferences when it closes, so the user's own auto-connect value is put back
+// after that.
+async function afterConnected() {
+  const h = handover;
+  handover = null;
+  const close = h && Date.now() - h.at < HANDOVER_MS && store.getSetting('closeCiscoAfterConnect') !== false;
+  await new Promise((r) => setTimeout(r, close ? 3000 : 5000)); // let Cisco finish its own work first
+  if (close && lastStatus.connected) {
+    try { await cisco.stopGui(); } catch { /* not essential */ }
+    send('cisco:closed');
+    refreshStatus({ fresh: true });
+  }
+  cisco.restoreAutoConnect();
+}
+
 async function handOver(vpn) {
   const r = await cisco.openInCisco(vpn, { autoConnect: store.getSetting('autoConnect') !== false });
+  handover = { at: Date.now() };
   // The Cisco app has read the setting once it is up; put the user's own value back.
   if (r.autoConnect) setTimeout(() => cisco.restoreAutoConnect(), 15000);
   send('connect:done', {
@@ -252,10 +275,11 @@ function registerIpc() {
       installed: !!p, dir: p?.dir || '', prefsFile: cisco.prefsFile(), prefs: cisco.readPrefs(), profileHosts: cisco.profileHosts(),
       version: lastStatus.version || cisco.installedVersion(), versionSince: store.getSetting('ciscoVersionSince') || 0,
       autoConnect: store.getSetting('autoConnect') !== false, autoConnectAllowed: cisco.profileAllowsAutoConnect(),
+      closeAfterConnect: store.getSetting('closeCiscoAfterConnect') !== false,
     };
   });
   handle('settings:set', (_e, key, value) => {
-    if (key !== 'autoConnect') throw new Error('Unknown setting');
+    if (!['autoConnect', 'closeCiscoAfterConnect'].includes(key)) throw new Error('Unknown setting');
     store.setSetting(key, !!value);
   });
   handle('cisco:status', () => refreshStatus({ fresh: true }));

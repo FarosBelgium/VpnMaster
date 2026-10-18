@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('api', {
     onTrayConnect: (fn) => on('tray:connect', fn),
     onUpdated: (fn) => on('cisco:updated', fn),
     setAutoConnect: (v) => invoke('settings:set', 'autoConnect', v),
+    setCloseAfterConnect: (v) => invoke('settings:set', 'closeCiscoAfterConnect', v),
+    onClosed: (fn) => on('cisco:closed', fn),
   },
   store: {
     info: () => invoke('store:info'),

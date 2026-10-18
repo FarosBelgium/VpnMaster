@@ -55,7 +55,7 @@ Connected and want another one? VPNMaster asks, disconnects and connects to the 
 
 | Login | What VPNMaster does |
 |---|---|
-| **External login (SSO)** | Only the Cisco app can show the login page (Cisco's command-line client has no browser), so VPNMaster hands over to it. It sets your VPN as the server the Cisco app has selected and opens the app (or restarts it if it was open, so it reads the new server). When your company's profile allows it, VPNMaster also has the Cisco app **connect by itself** as it opens, so the login page appears without a click; your own Cisco setting is put back right after. Otherwise click **Connect** in the Cisco window. Log in on the page Cisco shows; VPNMaster shows **Connected** as soon as Cisco is connected. You can switch the automatic connect off at the bottom of the sidebar (**Cisco connects by itself**). |
+| **External login (SSO)** | Only the Cisco app can show the login page (Cisco's command-line client has no browser), so VPNMaster hands over to it. It sets your VPN as the server the Cisco app has selected and opens the app (or restarts it if it was open, so it reads the new server). When your company's profile allows it, VPNMaster also has the Cisco app **connect by itself** as it opens, so the login page appears without a click; your own Cisco setting is put back right after. Otherwise click **Connect** in the Cisco window. Log in on the page Cisco shows; VPNMaster shows **Connected** as soon as Cisco is connected. Once you are connected, VPNMaster closes the Cisco app again: the VPN stays connected, because Cisco's background service keeps it, not the window. Both are switched on and off at the bottom of the sidebar (**Cisco connects by itself**, **Close Cisco after connecting**). |
 | **Username and password** | VPNMaster connects for you with Cisco's command-line client (`bin/vpn`). It answers the group, username and password questions itself. Anything else Cisco asks, such as a one-time code, a second password or a banner to accept, appears in a yellow bar in VPNMaster. The Cisco window is closed while connecting, because Cisco allows only one program to connect at a time, and reopened afterwards if it was open. |
 
 If a VPN saved as *username and password* turns out to need an external login, VPNMaster hands over to the Cisco app by itself.
@@ -76,7 +76,7 @@ Opens VPNMaster (or uses the window that's already open) and connects to the sav
 |---|---|
 | `data/vpns.json` in the data folder above (running from source: `./data/`) | Your saved VPNs |
 | `data/settings.json` | Settings, and the Cisco version VPNMaster saw last |
-| Cisco's user preferences: `~/.vpn/.anyconnect` (Linux, macOS) or `%LOCALAPPDATA%\Cisco\Cisco Secure Client\VPN\preferences.xml` (Windows) | For an SSO login VPNMaster changes only `DefaultHostName`, `DefaultHostAddress`, `DefaultGroup` (and `DefaultUser` when the VPN has a username), and for a moment `AutoConnectOnStart`. The first time, the original file is saved next to it with `.vpnmaster-backup` added to its name. |
+| Cisco's user preferences: `~/.vpn/.anyconnect` (Linux, macOS) or `%LOCALAPPDATA%\Cisco\Cisco Secure Client\VPN\preferences.xml` (Windows) | For an SSO login VPNMaster changes only `DefaultHostName`, `DefaultHostAddress`, `DefaultGroup` (and `DefaultUser` when the VPN has a username), and for a moment `AutoConnectOnStart` (put back once you are connected, or when VPNMaster starts). The first time, the original file is saved next to it with `.vpnmaster-backup` added to its name. |
 
 Example `vpns.json`:
 

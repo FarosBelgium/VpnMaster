@@ -199,6 +199,9 @@ async function renderStoreInfo() {
       }) : null,
       cisco.autoConnectAllowed ? el('label', { class: 'check-row', title: 'For external-login VPNs: the Cisco app connects as soon as VPNMaster opens it, so the login page appears without a click. Your own Cisco setting is put back right after.' },
         auto, 'Cisco connects by itself (SSO)') : null,
+      cisco.installed ? el('label', { class: 'check-row', title: 'For external-login VPNs: once you are connected, VPNMaster closes the Cisco app it opened. The VPN stays connected: Cisco\'s background service keeps it.' },
+        el('input', { type: 'checkbox', checked: cisco.closeAfterConnect, onchange: (e) => api.cisco.setCloseAfterConnect(e.target.checked).then(loadCisco) }),
+        'Close Cisco after connecting (SSO)') : null,
       el('div', { class: 'row' }, el('span', { text: 'Saved in ' }), el('button', { class: 'link', title: info.file, onclick: () => api.store.reveal(), text: 'vpns.json' })),
       info.encrypted ? null : el('div', { class: 'warn', text: '⚠ No keychain: passwords would be saved unencrypted. Leave them empty to be asked.' }),
     ].filter(Boolean));
@@ -393,10 +396,14 @@ api.cisco.onDone((r) => {
   session.prompt = null;
   session.result = r;
   if (r.ok && !r.handedOver) { connectedRef = session.ref; toast(r.message); }
-  if (r.handedOver) connectedRef = session.ref; // marked as soon as Cisco reports "Connected"
+  if (r.handedOver) {
+    connectedRef = session.ref; // marked as soon as Cisco reports "Connected"
+    if (status.connected) session.result = { ok: true, message: `Connected${status.server ? ` (${status.server})` : ''}` };
+  }
   loadAll();
 });
 api.cisco.onTrayConnect((ref) => connectTo(ref));
+api.cisco.onClosed(() => toast('Connected. The Cisco app was closed; the VPN stays connected.'));
 
 // ===========================================================================
 // VPN editor
