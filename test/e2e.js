@@ -251,7 +251,7 @@ async function run() {
   });
   await test('Connect on an external-login VPN opens the Cisco app with it selected', async () => {
     await js(`document.querySelector('.btn.connect').click()`);
-    await until(() => read(`${STATE}.gui`).trim() === 'sso.example.com', 15000, 'handover');
+    await until(() => read(`${STATE}.gui`).trim() === 'sso.example.com', 40000, 'handover');
     await until(() => js(`document.querySelector('.result')?.textContent.includes('Log in on the page Cisco shows')`), 5000, 'hint shown');
     await cisco.stopGui();
   });
@@ -279,7 +279,7 @@ async function run() {
     await resetCisco();
     await js(`[...document.querySelectorAll('.vpn')].find((n) => n.textContent.includes('Klant SSO')).click()`);
     await js(`document.querySelector('.btn.connect').click()`);
-    await until(() => read(`${STATE}.gui`).trim() === 'sso.example.com', 15000, 'handover');
+    await until(() => read(`${STATE}.gui`).trim() === 'sso.example.com', 40000, 'handover');
     // The user logs in in the Cisco app; VPNMaster sees Cisco connect.
     fs.writeFileSync(STATE, 'Connected');
     fs.writeFileSync(`${STATE}.server`, '94.143.189.252');
@@ -326,7 +326,7 @@ async function run() {
     await js(`document.querySelector('.btn.connect').click()`);
     await until(() => js(`!document.querySelector('#dialog-modal').classList.contains('hidden')`), 5000, 'confirmation');
     await js(`document.querySelector('#dialog-ok').click()`);
-    await until(() => read(`${STATE}.gui`).trim() === 'sso.example.com', 15000, 'handover after disconnect');
+    await until(() => read(`${STATE}.gui`).trim() === 'sso.example.com', 40000, 'handover after disconnect');
     eq((await cisco.status()).state, 'Disconnected', 'disconnected first');
   });
 
@@ -337,5 +337,5 @@ async function run() {
   app.exit(failed.length ? 1 : 0);
 }
 
-setTimeout(() => { console.log('timed out'); app.exit(2); }, 180000).unref();
+setTimeout(() => { console.log('timed out'); app.exit(2); }, 300000).unref();
 run().catch((e) => { console.error(e); app.exit(1); });

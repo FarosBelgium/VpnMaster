@@ -8,6 +8,7 @@ let prefs = '';
 try { prefs = fs.readFileSync(process.env.VPNMASTER_PREFS_FILE, 'utf8'); } catch { /* none */ }
 const host = (/<DefaultHostName>([^<]*)/.exec(prefs) || [])[1] || '';
 const auto = /<ControllablePreferences>[\s\S]*<AutoConnectOnStart>true<\/AutoConnectOnStart>[\s\S]*<\/ControllablePreferences>/.test(prefs);
-fs.writeFileSync(`${STATE}.gui`, `${host}\n`);
+// .gui last: the tests wait for it, then read .gui-auto.
 fs.writeFileSync(`${STATE}.gui-auto`, auto ? 'auto' : 'manual');
+fs.writeFileSync(`${STATE}.gui`, `${host}\n`);
 setInterval(() => {}, 1000);
