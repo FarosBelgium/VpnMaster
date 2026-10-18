@@ -231,6 +231,7 @@ function renderStatus() {
 api.cisco.onStatus((st) => {
   const was = status.connected;
   status = st;
+  if (st.version && st.version !== cisco.version) { cisco.version = st.version; renderStoreInfo(); }
   if (!st.connected && was) connectedRef = null;
   if (st.connected && !connectedRef && session?.result?.handedOver) connectedRef = session.ref;
   if (st.connected && !was && session?.result?.handedOver) {

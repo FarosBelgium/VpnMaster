@@ -8,6 +8,10 @@ const path = require('path');
 const resources = path.resolve(process.argv[2] || '');
 const app = path.join(resources, 'app.asar');
 if (!fs.existsSync(app)) { console.error(`no app.asar in ${resources}`); process.exit(1); }
+// Windows: Electron is a GUI program, so the Cisco stand-ins run with node.exe there.
+if (process.platform === 'win32' && !process.env.VPNMASTER_NODE) {
+  try { process.env.VPNMASTER_NODE = require('child_process').execFileSync('where', ['node'], { encoding: 'utf8' }).split(/\r?\n/)[0].trim(); } catch { /* not found */ }
+}
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vpnmaster-packaged-'));
 process.env.VPNMASTER_CISCO_DIR = path.join(__dirname, 'fake-cisco');
 process.env.VPNMASTER_FAKE_STATE = path.join(tmp, 'state');
@@ -31,7 +35,7 @@ setTimeout(() => { console.error('timed out'); process.exit(2); }, 60000).unref(
   console.log('  ✓ connected with node-pty from the installed app');
   if (!(await cisco.status()).connected) throw new Error('not connected after connect');
   await cisco.disconnect();
-  fs.rmSync(tmp, { recursive: true, force: true });
+  try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* Windows: still in use */ }
   console.log('packaged app OK');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -88,9 +88,10 @@ function requirePaths() {
 }
 
 // How to start one of Cisco's programs. The test stand-ins are Node scripts, run with
-// this app's own runtime.
+// this app's own runtime, or with VPNMASTER_NODE: on Windows Electron is a GUI program
+// whose output never reaches a pseudo-terminal, so the tests use node.exe there.
 function command(file, args = []) {
-  if (file.endsWith('.js')) return { file: process.execPath, args: [file, ...args], env: { ELECTRON_RUN_AS_NODE: '1' } };
+  if (file.endsWith('.js')) return { file: process.env.VPNMASTER_NODE || process.execPath, args: [file, ...args], env: { ELECTRON_RUN_AS_NODE: '1' } };
   return { file, args, env: {} };
 }
 
@@ -345,7 +346,8 @@ async function guiPids() {
 }
 
 function kill(pid, force) {
-  if (IS_WIN) return execText('taskkill', ['/PID', String(pid), '/T', ...(force ? ['/F'] : [])]);
+  // Windows: closing the Cisco window only hides it in the tray, so always end it.
+  if (IS_WIN) return execText('taskkill', ['/PID', String(pid), '/T', '/F']);
   try { process.kill(pid, force ? 'SIGKILL' : 'SIGTERM'); } catch { /* gone */ }
   return Promise.resolve();
 }

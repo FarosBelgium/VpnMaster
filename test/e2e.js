@@ -8,6 +8,10 @@ const os = require('os');
 const path = require('path');
 const { app, BrowserWindow } = require('electron');
 
+// Windows: Electron is a GUI program, so the Cisco stand-ins run with node.exe there.
+if (process.platform === 'win32' && !process.env.VPNMASTER_NODE) {
+  try { process.env.VPNMASTER_NODE = require('child_process').execFileSync('where', ['node'], { encoding: 'utf8' }).split(/\r?\n/)[0].trim(); } catch { /* not found */ }
+}
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vpnmaster-test-'));
 const FAKE = path.join(__dirname, 'fake-cisco');
 const STATE = path.join(tmp, 'cisco-state');
@@ -313,7 +317,7 @@ async function run() {
   await resetCisco();
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
-  fs.rmSync(tmp, { recursive: true, force: true });
+  try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* Windows: still in use */ }
   app.exit(failed.length ? 1 : 0);
 }
 
