@@ -1,0 +1,143 @@
+{
+  "name": "vpnmaster",
+  "version": "1.1.0",
+  "description": "Save Cisco Secure Client (AnyConnect) VPNs and connect to them in one click, including VPNs that log in through an external (SSO) login",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "setup:linux": "bash scripts/setup-linux-sandbox.sh",
+    "icons": "electron scripts/render-icon.js src/renderer/assets/icon.svg build/icon.png:1024 src/renderer/assets/icon.png:256 build/icons/16x16.png:16 build/icons/24x24.png:24 build/icons/32x32.png:32 build/icons/48x48.png:48 build/icons/64x64.png:64 build/icons/128x128.png:128 build/icons/256x256.png:256 build/icons/512x512.png:512",
+    "dist": "electron-builder --linux deb --x64 --publish never",
+    "test": "electron test/e2e.js",
+    "test:headless": "bash scripts/headless.sh electron test/e2e.js",
+    "postinstall": "node scripts/fix-node-pty.js",
+    "dist:win": "electron-builder --win nsis --x64 --publish never",
+    "dist:mac": "electron-builder --mac --publish never"
+  },
+  "author": {
+    "name": "Ruben Schroyen",
+    "email": "Ruben.schroyen@faros.be"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "productName": "VPNMaster",
+  "homepage": "https://github.com/FarosBelgium/VpnMaster",
+  "desktopName": "vpnmaster.desktop",
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "node-pty": "^1.1.0"
+  },
+  "devDependencies": {
+    "electron": "^44.8.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "be.faros.vpnmaster",
+    "productName": "VPNMaster",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!**/node_modules/nan/**",
+      "!**/node_modules/node-addon-api/**",
+      "!**/node_modules/node-pty/{src,deps,third_party,scripts,typings}/**",
+      "!**/node_modules/node-pty/**/*.pdb"
+    ],
+    "asarUnpack": [
+      "**/node_modules/node-pty/**"
+    ],
+    "npmRebuild": false,
+    "afterPack": "scripts/after-pack.js",
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "category": "Network",
+      "icon": "build/icons",
+      "executableName": "vpnmaster",
+      "synopsis": "Saved VPNs for Cisco Secure Client",
+      "syncDesktopName": true,
+      "desktop": {
+        "entry": {
+          "Name": "VPNMaster",
+          "StartupWMClass": "vpnmaster"
+        }
+      },
+      "files": [
+        "!**/node_modules/node-pty/prebuilds/**"
+      ]
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0 | libgtk-3-0t64",
+        "libnss3",
+        "libxss1",
+        "libasound2 | libasound2t64",
+        "libsecret-1-0"
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "files": [
+        "!**/node_modules/node-pty/build/**",
+        "!**/node_modules/node-pty/prebuilds/darwin-*/**",
+        "!**/node_modules/node-pty/prebuilds/linux-*/**"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "VPNMaster",
+      "artifactName": "VPNMaster-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.utilities",
+      "artifactName": "VPNMaster-${version}-mac-${arch}.${ext}",
+      "files": [
+        "!**/node_modules/node-pty/build/**",
+        "!**/node_modules/node-pty/prebuilds/win32-*/**",
+        "!**/node_modules/node-pty/prebuilds/linux-*/**"
+      ],
+      "identity": "-",
+      "hardenedRuntime": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "FarosBelgium",
+        "repo": "VpnMaster",
+        "releaseType": "release"
+      }
+    ]
+  }
+}

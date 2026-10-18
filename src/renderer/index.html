@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'">
+  <title>VPNMaster</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside id="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/icon.svg" alt="">
+      <span>VPN<span class="accent">Master</span></span>
+    </div>
+    <div class="sidebar-actions">
+      <input id="vpn-search" type="search" placeholder="Search VPNs…" spellcheck="false">
+      <button id="btn-new-vpn" class="btn primary" title="Save a VPN">+ New</button>
+    </div>
+    <div id="vpn-list"></div>
+    <div id="store-info" class="store-info"></div>
+  </aside>
+
+  <main id="main">
+    <header id="topbar">
+      <div id="status-bar"></div>
+      <div id="update-area"></div>
+    </header>
+    <section id="view"></section>
+  </main>
+
+  <!-- VPN editor -->
+  <div id="vpn-modal" class="modal hidden">
+    <form id="vpn-form" class="modal-card" autocomplete="off">
+      <h2 id="vpn-form-title">New VPN</h2>
+      <input type="hidden" name="id">
+      <div class="grid">
+        <label>Name<input name="name" placeholder="e.g. Customer A" spellcheck="false"></label>
+        <label>Group<input name="userGroup" placeholder="optional tunnel group, e.g. full" spellcheck="false"></label>
+        <label class="span2">Server address<input name="host" required placeholder="vpn.example.com" spellcheck="false">
+          <span class="hint">What you would type in Cisco Secure Client. A group URL (vpn.example.com/engineering) works too.</span>
+        </label>
+      </div>
+
+      <div class="field">
+        <span class="field-label">How do you log in?</span>
+        <div class="auth-switch">
+          <label class="auth-option"><input type="radio" name="auth" value="sso">
+            <span><b>External login</b> (SSO, e.g. a Microsoft or Okta page)<br>
+            <span class="muted">VPNMaster selects this VPN in Cisco Secure Client and opens it; you click Connect there and log in on the page Cisco shows.</span></span>
+          </label>
+          <label class="auth-option"><input type="radio" name="auth" value="password">
+            <span><b>Username and password</b><br>
+            <span class="muted">VPNMaster connects for you with Cisco's command-line client. A code or second password is asked here.</span></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid" id="cred-fields">
+        <label>Username<input name="username" spellcheck="false" placeholder="optional for external login"></label>
+        <label class="pw-field">Password
+          <div class="row">
+            <input name="password" type="password" placeholder="leave empty to be asked">
+            <button type="button" class="btn small" id="btn-forget-pw" hidden>Forget saved</button>
+          </div>
+          <span class="hint" id="pw-hint"></span>
+        </label>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Colour</span>
+        <div class="colors" id="color-options"></div>
+        <input type="hidden" name="color">
+      </div>
+      <label>Notes<textarea name="notes" rows="2" spellcheck="false"></textarea></label>
+      <p id="vpn-form-error" class="error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn danger" id="btn-delete-vpn">Delete</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Generic prompt / confirm dialog -->
+  <div id="dialog-modal" class="modal hidden">
+    <form id="dialog-form" class="modal-card small">
+      <h2 id="dialog-title"></h2>
+      <div id="dialog-message"></div>
+      <input id="dialog-input" spellcheck="false">
+      <label class="check-row hidden" id="dialog-check-row"><input type="checkbox" id="dialog-check"><span id="dialog-check-label"></span></label>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="dialog-cancel">Cancel</button>
+        <button type="submit" class="btn primary" id="dialog-ok">OK</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>

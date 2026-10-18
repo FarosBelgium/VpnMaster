@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AnyConnectProfile xmlns="http://schemas.xmlsoap.org/encoding/">
+	<ClientInitialization>
+		<AutoConnectOnStart UserControllable="true">false</AutoConnectOnStart>
+	</ClientInitialization>
+	<ServerList>
+		<HostEntry>
+			<HostName>Fake Company VPN (Split)</HostName>
+			<HostAddress>portal.example.com</HostAddress>
+		</HostEntry>
+		<HostEntry>
+			<HostName>Fake Company VPN (Full)</HostName>
+			<HostAddress>portal.example.com</HostAddress>
+			<UserGroup>full</UserGroup>
+		</HostEntry>
+	</ServerList>
+</AnyConnectProfile>

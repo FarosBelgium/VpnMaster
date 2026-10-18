@@ -1,0 +1,5 @@
+node_modules/
+# Saved VPNs and secrets: never commit
+data/
+dist/
+.idea/
