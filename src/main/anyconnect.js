@@ -212,6 +212,9 @@ function target(vpn) {
 function clean(text) {
   return String(text)
     .replace(/\x1b\][^\x07]*\x07/g, '') // window titles (Windows console)
+    // Windows' terminal (ConPTY) moves the cursor to the next line instead of writing a
+    // line break: \x1b[<row>;<col>H. Without this, "Username:" would not start a line.
+    .replace(/\x1b\[\d*(?:;\d*)?[Hf]/g, '\n')
     .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
     .replace(/\r+\n/g, '\n') // a terminal turns "\r\n" into "\r\r\n"
     .replace(/\r/g, '\n');
@@ -483,6 +486,7 @@ class CliConnection {
     this.promptSeq = 0;
     this.pending = null;
     this.done = false;
+    this.connectSent = false;
   }
 
   start() {
@@ -492,6 +496,15 @@ class CliConnection {
     this.proc.onData((d) => this._data(d));
     this.proc.onExit(() => this._exited());
     this.timer = setTimeout(() => this._finish({ ok: false, message: 'Connecting took too long and was stopped' }), CONNECT_TIMEOUT_MS);
+    // Only type the connect command once the client asks for it ("VPN>"): on Windows it
+    // throws away anything typed before that. Fallback for a client that never shows it.
+    this.connectTimer = setTimeout(() => this._connect(), 20000);
+  }
+
+  _connect() {
+    if (this.connectSent || this.done) return;
+    this.connectSent = true;
+    clearTimeout(this.connectTimer);
     this._send(`connect ${target(this.vpn)}`);
   }
 
@@ -505,6 +518,10 @@ class CliConnection {
     this.buf += text;
     this.events.onOutput?.(text);
     if (this.done) return;
+    if (!this.connectSent) {
+      if (/(?:^|\n)\s*VPN>\s*$/.test(this.out)) this._connect();
+      return;
+    }
 
     if (/>>\s*state:\s*Connected\b/i.test(this.buf)) {
       this._send('exit'); // the tunnel stays up; only this client stops
@@ -571,6 +588,7 @@ class CliConnection {
     if (this.done) return;
     this.done = true;
     clearTimeout(this.timer);
+    clearTimeout(this.connectTimer);
     this.pending = null;
     if (!result.ok && this.proc) {
       // Stops an unfinished login; the agent then goes back to "Disconnected".

@@ -16,7 +16,9 @@ const state = () => {
   return Date.now() - Number(m[1]) > 1500 ? 'Disconnected' : 'Disconnecting';
 };
 const log = (line) => fs.appendFileSync(`${STATE}.log`, `${line}\n`);
-const out = (s) => process.stdout.write(s.replace(/\n/g, '\r\n'));
+// Like the Windows console (ConPTY): a new line is a cursor move, \x1b[<row>;1H, not "\n".
+let row = 1;
+const out = (s) => process.stdout.write(s.replace(/\n/g, () => `\x1b[${++row};1H`));
 
 function banner() {
   out(`Cisco Secure Client (version ${process.env.VPNMASTER_FAKE_VERSION || read(`${STATE}.version`, '5.1.20.333')}) release.\n\nCopyright (c) 2004 - 2026, Cisco Systems, Inc. All rights reserved.\n\n\n  >> state: ${state()}\n  >> notice: Ready to connect.\n`);
@@ -44,6 +46,8 @@ if (cmd === 'disconnect') {
 }
 
 // Interactive: read lines ourselves, so a password can be read without echo.
+// Like vpncli.exe, anything typed before the first "VPN>" prompt is thrown away.
+let ready = false;
 let secret = false;
 let line = '';
 let waiting = null;
@@ -51,6 +55,7 @@ const stdin = process.stdin;
 if (stdin.isTTY) stdin.setRawMode(true);
 stdin.setEncoding('utf8');
 stdin.on('data', (chunk) => {
+  if (!ready) return;
   for (const ch of chunk) {
     if (ch === '\x03') process.exit(130);
     if (ch === '\r' || ch === '\n') {
@@ -92,7 +97,9 @@ async function connect(target) {
 }
 
 (async () => {
+  await new Promise((r) => setTimeout(r, 300)); // starting up
   banner();
+  ready = true;
   for (;;) {
     const l = (await ask('VPN> ')).trim();
     if (l === 'exit' || l === 'quit') process.exit(0);
