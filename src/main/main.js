@@ -112,8 +112,36 @@ async function disconnectVpn() {
   }
 }
 
+// Which saved VPN or profile server Cisco is connected to, also when it was connected
+// before VPNMaster started (or by the Cisco app): from the "Connected to …" Cisco reports,
+// else the one VPNMaster connected to last.
+function identify(st) {
+  if (!st.connected) return null;
+  const t = (st.connectedTarget || '').toLowerCase();
+  if (t) {
+    let vpns = [];
+    try { vpns = store.list(); } catch { /* broken file */ }
+    const saved = vpns.find((v) => [cisco.target(v), v.name].some((x) => x && x.toLowerCase() === t))
+      || vpns.find((v) => !v.userGroup && v.host.toLowerCase() === t);
+    if (saved) return { id: saved.id };
+    const hosts = cisco.profileHosts();
+    const profile = hosts.find((h) => h.name.toLowerCase() === t)
+      || hosts.find((h) => (h.userGroup ? `${h.address}/${h.userGroup}` : h.address).toLowerCase() === t);
+    if (profile) return { profileName: profile.name };
+  }
+  const last = store.getSetting('lastConnected');
+  if (last && (!t || !last.target || last.target.toLowerCase() === t)) return last.ref;
+  return null;
+}
+
+function rememberConnected(ref, st) {
+  if (ref) store.setSetting('lastConnected', { ref, target: st.connectedTarget || '' });
+}
+
 function publishStatus(st) {
   lastStatus = st;
+  lastStatus.connectedTo = identify(st);
+  if (lastStatus.connected && lastStatus.connectedTo) rememberConnected(lastStatus.connectedTo, lastStatus);
   lastStatus.connecting = !!active;
   lastStatus.connectingTo = active ? active.vpn.name : '';
   noticeCiscoVersion(lastStatus.version);

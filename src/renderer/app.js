@@ -243,6 +243,7 @@ api.cisco.onStatus((st) => {
   const was = status.connected;
   status = st;
   if (st.version && st.version !== cisco.version) { cisco.version = st.version; renderStoreInfo(); }
+  if (st.connected && st.connectedTo) connectedRef = st.connectedTo; // also after a restart
   if (!st.connected && was) disconnected();
   if (st.connected && !connectedRef && session?.result?.handedOver) connectedRef = session.ref;
   if (st.connected && !was && session?.result?.handedOver) {
@@ -308,7 +309,12 @@ function renderView() {
     el('p', { class: 'muted how', text: how })];
 
   if (s) {
-    if (s.prompt) parts.push(promptBar(s));
+    // The same field across redraws (a status update every few seconds), so what you
+    // typed or pasted stays.
+    if (s.prompt) {
+      if (!s.promptEl || s.promptEl.dataset.id !== String(s.prompt.id)) s.promptEl = promptBar(s);
+      parts.push(s.promptEl);
+    }
     if (s.result) {
       parts.push(el('div', { class: `result ${s.result.ok ? 'ok' : 'bad'}` },
         el('span', { text: s.result.ok ? (s.result.handedOver ? '→ ' : '✔ ') : '✖ ' }), s.result.message || (s.result.ok ? 'Done' : 'Failed')));
@@ -321,8 +327,19 @@ function renderView() {
   }
   if (item.notes) parts.push(el('div', { class: 'notes selectable', text: item.notes }));
   if (item.lastUsed) parts.push(el('div', { class: 'muted small', text: `Last used ${fmtDate(item.lastUsed)}` }));
+  // Keep the cursor where it was (e.g. while typing an answer for Cisco).
+  const focused = view.contains(document.activeElement) ? document.activeElement : null;
+  const range = focused && typeof focused.selectionStart === 'number' ? [focused.selectionStart, focused.selectionEnd] : null;
   view.replaceChildren(el('div', { class: 'vpn-view' }, ...parts));
-  if (s?.prompt) setTimeout(() => $('#prompt-input')?.focus(), 0);
+  if (focused && view.contains(focused) && document.activeElement !== focused) {
+    focused.focus();
+    if (range) try { focused.setSelectionRange(...range); } catch { /* not a text field */ }
+  }
+  // Focus a new question once; a redraw must not move the cursor (e.g. off "Save").
+  if (s?.prompt && s.focusedPrompt !== s.prompt.id) {
+    s.focusedPrompt = s.prompt.id;
+    setTimeout(() => $('#prompt-input')?.focus(), 0);
+  }
 }
 
 function promptBar(s) {
@@ -332,10 +349,11 @@ function promptBar(s) {
   const save = p.canSave ? el('input', { type: 'checkbox', id: 'prompt-save' }) : null;
   const send = async (value) => {
     s.prompt = null; // Cisco echoes the answer (not a password) in its output
+    s.promptEl = null;
     renderView();
     try { await call(api.cisco.answer(p.id, value, save?.checked)); } catch (e) { toast(e.message); }
   };
-  return el('form', { class: 'prompt-bar', onsubmit: (e) => { e.preventDefault(); send(input.value); } },
+  return el('form', { class: 'prompt-bar', dataset: { id: String(p.id) }, onsubmit: (e) => { e.preventDefault(); send(input.value); } },
     el('pre', { class: 'prompt-text selectable', text: p.text }),
     isYesNo
       ? el('div', { class: 'row' }, el('span', { class: 'spacer' }),
@@ -402,6 +420,7 @@ api.cisco.onPrompt((p) => { if (session) { session.prompt = p; renderView(); } }
 api.cisco.onDone((r) => {
   if (!session) return;
   session.prompt = null;
+  session.promptEl = null;
   session.result = r;
   if (r.ok && !r.handedOver) { connectedRef = session.ref; toast(r.message); }
   if (r.handedOver) {

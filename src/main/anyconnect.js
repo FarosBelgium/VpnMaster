@@ -54,11 +54,13 @@ function paths() {
   if (IS_WIN) {
     const dir = winDirs('Cisco Secure Client', 'Cisco AnyConnect Secure Mobility Client').find((d) => fs.existsSync(path.join(d, 'vpncli.exe')));
     if (!dir) return null;
+    // Secure Client 5: UI\csc_ui.exe; AnyConnect 4: vpnui.exe.
+    const guis = [path.join(dir, 'UI', 'csc_ui.exe'), path.join(dir, 'vpnui.exe')];
     return {
       dir,
       cli: path.join(dir, 'vpncli.exe'),
-      gui: path.join(dir, 'vpnui.exe'),
-      guiNames: ['vpnui.exe'],
+      gui: guis.find((g) => fs.existsSync(g)) || guis[0],
+      guiNames: ['csc_ui.exe', 'vpnui.exe'],
       profileDirs: [programData('Cisco Secure Client', 'VPN', 'Profile'), programData('Cisco AnyConnect Secure Mobility Client', 'Profile')],
       versionFile: path.join(dir, 'update.txt'),
     };
@@ -250,9 +252,12 @@ function parseStats(text) {
     state = all.length ? all[all.length - 1][1].trim() : 'Unknown';
   }
   const na = (v) => (/^not available$/i.test(v) ? '' : v);
+  // "  >> notice: Connected to vpn.example.com/group." or "…to Company VPN (Full)."
+  const notices = [...t.matchAll(/>>\s*notice:\s*Connected to (.+?)\.?\s*$/gm)];
   return {
     state,
     connected: /^connected$/i.test(state),
+    connectedTarget: /^connected$/i.test(state) && notices.length ? notices[notices.length - 1][1].trim() : '',
     server: na(field('Server Address')),
     clientAddress: na(field('Client Address \\(IPv4\\)')) || na(field('Client Address \\(IPv6\\)')),
     duration: field('Duration'),

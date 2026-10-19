@@ -21,7 +21,16 @@ let row = 1;
 const out = (s) => process.stdout.write(s.replace(/\n/g, () => `\x1b[${++row};1H`));
 
 function banner() {
-  out(`Cisco Secure Client (version ${process.env.VPNMASTER_FAKE_VERSION || read(`${STATE}.version`, '5.1.20.333')}) release.\n\nCopyright (c) 2004 - 2026, Cisco Systems, Inc. All rights reserved.\n\n\n  >> state: ${state()}\n  >> notice: Ready to connect.\n`);
+  const s = state();
+  const notice = s === 'Connected' && read(`${STATE}.target`) ? `Connected to ${read(`${STATE}.target`)}.` : 'Ready to connect.';
+  out(`Cisco Secure Client (version ${process.env.VPNMASTER_FAKE_VERSION || read(`${STATE}.version`, '5.1.20.333')}) release.\n\nCopyright (c) 2004 - 2026, Cisco Systems, Inc. All rights reserved.\n\n\n  >> state: ${s}\n  >> notice: ${notice}\n`);
+}
+
+// Is the Cisco app (bin/vpnui.js) running?
+function guiRunning() {
+  const pid = Number(read(`${STATE}.gui-pid`, '0'));
+  if (!pid) return false;
+  try { process.kill(pid, 0); return true; } catch { return false; }
 }
 
 function stats(s = state()) {
@@ -80,6 +89,7 @@ const ask = (prompt, hidden = false) => new Promise((resolve) => {
 async function connect(target) {
   const host = target.split('/')[0];
   log(`connect ${target}`);
+  if (guiRunning()) return out('  >> error: Connect not available. Another AnyConnect application is running or this functionality was not requested by this application.\n');
   out(`  >> contacting host (${host}) for login information...\n`);
   if (host === 'sso.example.com') return out('  >> error: The server requires a web browser for single sign-on authentication.\n');
   if (host !== 'pw.example.com' && host !== 'otp.example.com') return out('  >> error: Connection attempt has failed due to server communication errors.\n');
@@ -93,7 +103,8 @@ async function connect(target) {
   out('  >> state: Connecting\n  >> notice: Establishing VPN session...\n');
   fs.writeFileSync(STATE, 'Connected');
   fs.writeFileSync(`${STATE}.server`, '203.0.113.7');
-  out('  >> state: Connected\n');
+  fs.writeFileSync(`${STATE}.target`, target);
+  out(`  >> state: Connected\n  >> notice: Connected to ${target}.\n`);
 }
 
 (async () => {

@@ -69,7 +69,7 @@ async function until(fn, ms = 10000, what = 'condition') {
 const read = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; } };
 const resetCisco = async () => {
   await cisco.stopGui();
-  for (const f of [STATE, `${STATE}.log`, `${STATE}.gui`, `${STATE}.gui-auto`, `${STATE}.server`, `${STATE}.version`, `${STATE}.slow`]) fs.rmSync(f, { force: true });
+  for (const f of [STATE, `${STATE}.log`, `${STATE}.gui`, `${STATE}.gui-auto`, `${STATE}.server`, `${STATE}.version`, `${STATE}.slow`, `${STATE}.target`, `${STATE}.gui-pid`]) fs.rmSync(f, { force: true });
 };
 
 // Connects with the command-line client; answers prompts with `answers` (by kind or text).
@@ -94,7 +94,7 @@ async function run() {
   await app.whenReady();
   const win = await until(() => BrowserWindow.getAllWindows()[0], 10000, 'window');
   await until(() => !win.webContents.isLoading(), 10000, 'page load');
-  const js = (code) => win.webContents.executeJavaScript(code);
+  const js = (code) => win.webContents.executeJavaScript(code).catch((e) => { throw new Error(`in the window: ${code.trim().slice(0, 160)}\n      ${e.message}`); });
 
   console.log('\nCisco files');
   await test('reads the servers of the company profile', () => {
@@ -272,6 +272,63 @@ async function run() {
     await until(() => js(`document.querySelector('.result.ok')?.textContent.includes('Connected to Klant PW')`), 10000, 'connected');
     await until(() => js(`document.querySelector('.status-pill.on')?.textContent.includes('Klant PW')`), 10000, 'status bar');
     assert(!(await js(`document.body.innerText`)).includes('secret'), 'password not shown anywhere');
+    await js(`[...document.querySelectorAll('#status-bar button')].find((b) => b.textContent === 'Disconnect').click()`);
+    await until(() => js(`!document.querySelector('.status-pill.on')`), 10000, 'disconnected');
+  });
+  await test('connecting with the Cisco app open: it is closed first and opened again after', async () => {
+    await resetCisco();
+    cisco.startGui();
+    await until(async () => (await cisco.guiPids()).length === 1, 10000, 'Cisco app running');
+    await js(`[...document.querySelectorAll('.vpn')].find((n) => n.textContent.includes('Klant PW')).click()`);
+    await js(`document.querySelector('.btn.connect').click()`);
+    await until(() => js(`!!document.querySelector('.prompt-bar')`), 15000, 'banner question (so Cisco accepted the connect)');
+    await js(`[...document.querySelectorAll('.prompt-bar button')].find((b) => b.textContent === 'Accept').click()`);
+    await until(() => js(`document.querySelector('.result.ok')?.textContent.includes('Connected to Klant PW')`), 15000, 'connected');
+    await until(() => js(`!!document.querySelector('.status-pill.on')`), 10000, 'status bar connected');
+    await until(async () => (await cisco.guiPids()).length === 1, 10000, 'Cisco app opened again');
+    assert(!read(`${STATE}.log`).includes('not available'), 'no refusal');
+    await js(`[...document.querySelectorAll('#status-bar button')].find((b) => b.textContent === 'Disconnect').click()`);
+    await until(() => js(`!document.querySelector('.status-pill.on')`), 10000, 'disconnected');
+    await cisco.stopGui();
+  });
+  await test('a VPN that was already connected is recognised (VPNMaster restarted)', async () => {
+    await resetCisco();
+    // Connected by Cisco (or by an earlier VPNMaster) to "Klant SSO"; VPNMaster starts fresh.
+    fs.writeFileSync(STATE, 'Connected');
+    fs.writeFileSync(`${STATE}.server`, '203.0.113.7');
+    fs.writeFileSync(`${STATE}.target`, 'sso.example.com');
+    win.reload();
+    await until(() => !win.webContents.isLoading(), 10000, 'reload');
+    await until(() => js(`document.querySelector('.status-pill.on')?.textContent === 'Connected to Klant SSO'`), 10000, 'status names the VPN');
+    eq(await js(`[...document.querySelectorAll('.vpn')].filter((n) => n.querySelector('.dot.on')).map((n) => n.querySelector('.vpn-name').textContent)`), ['Klant SSO'], 'marked in the list');
+    // A company profile server, as the Cisco app reports it.
+    fs.writeFileSync(`${STATE}.target`, 'Fake Company VPN (Full)');
+    await js(`api.cisco.status()`);
+    await until(() => js(`document.querySelector('.status-pill.on')?.textContent === 'Connected to Fake Company VPN (Full)'`), 10000, 'profile server named');
+    await js(`[...document.querySelectorAll('.vpn')].find((n) => n.textContent.includes('Klant PW')).click()`);
+  });
+  await test('a pasted password stays while Cisco waits (status updates redraw the window)', async () => {
+    await resetCisco();
+    fs.writeFileSync(STATE, 'Disconnected');
+    await js(`api.cisco.status()`);
+    await js(`document.querySelector('#btn-new-vpn').click()`);
+    await js(`(() => {
+      const form = document.querySelector('#vpn-form'); const f = form.elements;
+      f.name.value = 'Klant NoPw'; f.host.value = 'pw.example.com'; f.userGroup.value = 'full';
+      f.auth.value = 'password'; f.username.value = 'erin';
+      form.requestSubmit();
+    })()`);
+    await until(() => js(`document.querySelector('.vpn-title h1')?.textContent === 'Klant NoPw'`), 5000, 'selected');
+    await js(`document.querySelector('.btn.connect').click()`);
+    await until(() => js(`document.querySelector('.prompt-text')?.textContent === 'Password:'`), 15000, 'password question');
+    await js(`(() => { const i = document.querySelector('#prompt-input'); i.focus(); i.value = 'secr'; i.setSelectionRange(4, 4); })()`);
+    for (let i = 0; i < 3; i++) { await js(`api.cisco.status()`); await wait(200); }
+    eq(await js(`[document.querySelector('#prompt-input').value, document.activeElement === document.querySelector('#prompt-input'), document.querySelector('#prompt-input').selectionStart]`), ['secr', true, 4], 'value, focus and cursor kept');
+    await js(`(() => { const i = document.querySelector('#prompt-input'); i.value += 'et'; document.querySelector('.prompt-bar').requestSubmit(); })()`);
+    await until(() => js(`!!document.querySelector('.prompt-bar') && document.querySelector('.prompt-text').textContent.includes('accept')`), 15000, 'banner after the password');
+    await js(`[...document.querySelectorAll('.prompt-bar button')].find((b) => b.textContent === 'Accept').click()`);
+    await until(() => js(`document.querySelector('.result.ok')?.textContent.includes('Connected to Klant NoPw')`), 15000, 'connected');
+    await until(() => js(`!!document.querySelector('.status-pill.on')`), 10000, 'status bar connected');
     await js(`[...document.querySelectorAll('#status-bar button')].find((b) => b.textContent === 'Disconnect').click()`);
     await until(() => js(`!document.querySelector('.status-pill.on')`), 10000, 'disconnected');
   });

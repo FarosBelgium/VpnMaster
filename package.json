@@ -1,6 +1,6 @@
 {
   "name": "vpnmaster",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Save Cisco Secure Client (AnyConnect) VPNs and connect to them in one click, including VPNs that log in through an external (SSO) login",
   "main": "src/main/main.js",
   "scripts": {
