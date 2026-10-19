@@ -45,10 +45,18 @@ function toast(text) {
 // ===========================================================================
 
 let dialogResolve = null;
+let dialogQueue = Promise.resolve();
+
+// One dialog at a time: a dialog opened while another is showing (e.g. a "Cisco was
+// updated" notice during "Switch VPN?") waits its turn instead of cancelling it.
+function openDialog(opts) {
+  const shown = dialogQueue.then(() => showDialog(opts));
+  dialogQueue = shown.catch(() => {});
+  return shown;
+}
 
 // message: string or DOM node. check: label of an optional checkbox (result.checked).
-function openDialog({ title, message = '', input = false, type = 'text', value = '', placeholder = '', okText = 'OK', okClass = 'primary', check = '', cancelText = 'Cancel' }) {
-  if (dialogResolve) dialogResolve(null);
+function showDialog({ title, message = '', input = false, type = 'text', value = '', placeholder = '', okText = 'OK', okClass = 'primary', check = '', cancelText = 'Cancel' }) {
   const modal = $('#dialog-modal');
   const inp = $('#dialog-input');
   $('#dialog-title').textContent = title;

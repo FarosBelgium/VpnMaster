@@ -341,7 +341,23 @@ async function run() {
     await until(() => js(`document.querySelector('#dialog-title').textContent === 'Cisco Secure Client was updated'`), 8000, 'update notice');
     assert(await js(`document.querySelector('#dialog-message').textContent.includes('from 5.1.20.333 to 5.1.25.12')`), 'versions named');
     await js(`document.querySelector('#dialog-ok').click()`);
+    // Back to the old version: Cisco "was updated" again; close that notice too.
     fs.rmSync(`${STATE}.version`);
+    await js(`api.cisco.status()`);
+    await until(() => js(`document.querySelector('#dialog-message').textContent.includes('from 5.1.25.12 to 5.1.20.333')`), 8000, 'second notice');
+    await js(`document.querySelector('#dialog-ok').click()`);
+    await until(() => js(`document.querySelector('#dialog-modal').classList.contains('hidden')`), 5000, 'closed');
+  });
+  await test('a notice that arrives while a question is open waits its turn', async () => {
+    const answer = js(`openDialog({ title: 'Question?', okText: 'Yes' }).then((r) => r !== null)`);
+    await until(() => js(`document.querySelector('#dialog-title').textContent === 'Question?'`), 5000, 'question');
+    js(`alertDialog('Notice', 'Something happened')`);
+    await wait(300);
+    eq(await js(`document.querySelector('#dialog-title').textContent`), 'Question?', 'question still shown');
+    await js(`document.querySelector('#dialog-ok').click()`);
+    eq(await answer, true, 'question answered, not cancelled');
+    await until(() => js(`document.querySelector('#dialog-title').textContent === 'Notice' && !document.querySelector('#dialog-modal').classList.contains('hidden')`), 5000, 'notice afterwards');
+    await js(`document.querySelector('#dialog-ok').click()`);
   });
   await test('switching while connected asks first', async () => {
     await resetCisco();
